@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobilia - Dashboard Inmobiliario</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #64748b; --border: #e2e8f0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 25px; }
+        h1 { font-size: 1.8rem; color: #0f172a; }
+        .subtitle { color: var(--muted); margin-top: 5px; }
+        .card { background: var(--card); border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 24px; border: 1px solid var(--border); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: end; margin-top: 16px; }
+        label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: #475569; }
+        input, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: #fff; }
+        input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
+        .btn-group { display: flex; gap: 10px; align-items: end; }
+        button { padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; transition: 0.2s; font-size: 0.95rem; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+        .btn-secondary { background: #64748b; color: white; }
+        .btn-secondary:hover { background: #475569; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .loading { text-align: center; padding: 16px; color: var(--muted); font-weight: 500; display: none; }
+        .error { background: #fef2f2; color: #991b1b; padding: 12px; border-radius: 8px; margin-top: 16px; display: none; text-align: center; border: 1px solid #fecaca; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; }
+        .stat-item { background: #f8fafc; padding: 16px; border-radius: 10px; text-align: center; border: 1px solid var(--border); }
+        .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+        .stat-label { font-size: 0.85rem; color: var(--muted); }
+        .table-container { overflow-x: auto; margin-top: 20px; border-radius: 8px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; background: white; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; }
+        tr:hover td { background: #f8fafc; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-casa { background: #dbeafe; color: #1e40af; }
+        .badge-apartamento { background: #dcfce7; color: #166534; }
+        .badge-local { background: #fef3c7; color: #92400e; }
+        .badge-terreno { background: #f3e8ff; color: #6b21a8; }
+        .badge-galpon { background: #fee2e2; color: #991b1b; }
+        .badge-otro { background: #f1f5f9; color: #475569; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏢 Mobilia</h1>
+            <p class="subtitle">Análisis Automatizado de Requerimientos de WhatsApp</p>
+        </header>
+
+        <div class="card">
+            <h3 style="margin: 0 0 10px;">📥 Configuración del Análisis</h3>
+            <form id="uploadForm">
+                <div class="form-grid">
+                    <div><label>Archivo .txt de WhatsApp</label><input type="file" id="file" name="file" accept=".txt" required></div>
+                    <div><label>Fecha desde</label><input type="date" id="fecha_inicio" name="fecha_inicio"></div>
+                    <div><label>Fecha hasta (opcional)</label><input type="date" id="fecha_fin" name="fecha_fin"></div>
+                    <div><label>Tipo de Inmueble</label>
+                        <select id="tipo_inmueble" name="tipo_inmueble">
+                            <option value="">🌐 Todos</option>
+                            <option value="Casa">🏠 Casa</option>
+                            <option value="Apartamento">🏢 Apartamento</option>
+                            <option value="Local/Oficina">🏪 Local / Oficina</option>
+                            <option value="Terreno">🌳 Terreno / Finca</option>
+                            <option value="Galpón">🏭 Galpón / Bodega</option>
+                        </select>
+                    </div>
+                    <div class="btn-group">
+                        <button type="submit" class="btn-primary" id="submitBtn">🚀 Procesar</button>
+                        <button type="button" class="btn-secondary" id="resetBtn">🔄 Nueva Búsqueda</button>
+                    </div>
+                </div>
+            </form>
+            <div id="error" class="error"></div>
+            <div id="loading" class="loading">⏳ Analizando conversación... Por favor espera.</div>
+        </div>
+
+        <div id="results" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-item"><div class="stat-value" id="totalReqs">0</div><div class="stat-label">Requerimientos</div></div>
+                <div class="stat-item"><div class="stat-value" id="topType">-</div><div class="stat-label">Más Solicitado</div></div>
+                <div class="stat-item"><div class="stat-value" id="topAgent">-</div><div class="stat-label">Agente Activo</div></div>
+            </div>
+            <div class="card" style="margin-top: 24px;">
+                <h3 style="margin: 0 0 16px;">📋 Historial Detectado</h3>
+                <div class="table-container">
+                    <table id="reqTable">
+                        <thead><tr><th>Fecha</th><th>Tipo</th><th>Requerimiento</th><th>Contacto</th><th>Teléfono</th></tr></thead>
+                        <tbody id="reqTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const form = e.target;
+            const submitBtn = document.getElementById('submitBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const loading = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            const resultsDiv = document.getElementById('results');
+            
+            errorDiv.style.display = 'none';
+            loading.style.display = 'block';
+            submitBtn.disabled = true;
+            resetBtn.disabled = true;
+            resultsDiv.classList.add('hidden');
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/upload', { method: 'POST', body: formData, cache: 'no-store' });
+                const data = await response.json();
+
+                if (!response.ok) throw new Error(data.error || 'Error en el servidor');
+
+                document.getElementById('totalReqs').textContent = data.tabla.length;
+                const topType = Object.entries(data.estadisticas).sort((a,b) => b[1]-a[1])[0];
+                document.getElementById('topType').textContent = topType ? topType[0] : '-';
+                const topAgent = data.ranking[0];
+                document.getElementById('topAgent').textContent = topAgent ? topAgent.nombre : '-';
+
+                const tbody = document.getElementById('reqTableBody');
+                tbody.innerHTML = '';
+                
+                const mapaClases = {
+                    'Casa': 'badge-casa', 'Apartamento': 'badge-apartamento',
+                    'Local/Oficina': 'badge-local', 'Terreno': 'badge-terreno',
+                    'Galpón': 'badge-galpon', 'Otro': 'badge-otro'
+                };
+
+                data.tabla.forEach(r => {
+                    const tipo = r.tipo_inmueble || 'Otro';
+                    const clase = mapaClases[tipo] || 'badge-otro';
+                    tbody.innerHTML += `<tr>
+                        <td>${r.fecha}</td>
+                        <td><span class="badge ${clase}">${tipo}</span></td>
+                        <td>${r.requerimiento}</td>
+                        <td>${r.contacto}</td>
+                        <td>${r.telefono}</td>
+                    </tr>`;
+                });
+                resultsDiv.classList.remove('hidden');
+            } catch (err) {
+                errorDiv.textContent = `❌ ${err.message}`;
+                errorDiv.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+                submitBtn.disabled = false;
+                resetBtn.disabled = false;
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', function() {
+            document.getElementById('uploadForm').reset();
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('reqTableBody').innerHTML = '';
+            document.getElementById('totalReqs').textContent = '0';
+            document.getElementById('topType').textContent = '-';
+            document.getElementById('topAgent').textContent = '-';
+            document.getElementById('file').focus();
+        });
+    </script>
+</body>
+</html>
