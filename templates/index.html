@@ -3,170 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MobiliaChat Inmobiliario</title>
+    <title>Integral RQ Inmobiliario</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #64748b; --border: #e2e8f0; }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 25px; }
-        h1 { font-size: 1.8rem; color: #0f172a; }
-        .subtitle { color: var(--muted); margin-top: 5px; }
-        .card { background: var(--card); border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-bottom: 24px; border: 1px solid var(--border); }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: end; margin-top: 16px; }
-        label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: #475569; }
-        input, select { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: #fff; }
-        input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
-        .btn-group { display: flex; gap: 10px; align-items: end; }
-        button { padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; transition: 0.2s; font-size: 0.95rem; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
-        .btn-secondary { background: #64748b; color: white; }
-        .btn-secondary:hover { background: #475569; }
-        button:disabled { opacity: 0.6; cursor: not-allowed; }
-        .loading { text-align: center; padding: 16px; color: var(--muted); font-weight: 500; display: none; }
-        .error { background: #fef2f2; color: #991b1b; padding: 12px; border-radius: 8px; margin-top: 16px; display: none; text-align: center; border: 1px solid #fecaca; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; }
-        .stat-item { background: #f8fafc; padding: 16px; border-radius: 10px; text-align: center; border: 1px solid var(--border); }
-        .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
-        .stat-label { font-size: 0.85rem; color: var(--muted); }
-        .table-container { overflow-x: auto; margin-top: 20px; border-radius: 8px; border: 1px solid var(--border); }
-        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; background: white; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
-        th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; }
-        tr:hover td { background: #f8fafc; }
-        .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
-        .badge-casa { background: #dbeafe; color: #1e40af; }
-        .badge-apartamento { background: #dcfce7; color: #166534; }
-        .badge-local { background: #fef3c7; color: #92400e; }
-        .badge-terreno { background: #f3e8ff; color: #6b21a8; }
-        .badge-galpon { background: #fee2e2; color: #991b1b; }
-        .badge-otro { background: #f1f5f9; color: #475569; }
-        .hidden { display: none !important; }
+        .stat-btn { cursor: pointer; transition: all 0.2s; }
+        .stat-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .stat-btn.active { background-color: #0d6efd !important; color: white !important; border-color: #0d6efd !important; }
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }
+        .contactar-badge { transition: all 0.3s ease; }
+        .contactar-badge:hover { background-color: #157347 !important; transform: scale(1.05); }
     </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>🏢 MobiliaChat</h1>
-            <p class="subtitle">Análisis Automatizado de Requerimientos de WhatsApp</p>
-        </header>
+<body class="bg-light">
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 fw-bold">⏳ Analizando conversación... Por favor espera.</p>
+    </div>
 
-        <div class="card">
-            <h3 style="margin: 0 0 10px;">📥 Configuración del Análisis</h3>
-            <form id="uploadForm">
-                <div class="form-grid">
-                    <div><label>Archivo .txt de WhatsApp</label><input type="file" id="file" name="file" accept=".txt" required></div>
-                    <div><label>Fecha desde</label><input type="date" id="fecha_inicio" name="fecha_inicio"></div>
-                    <div><label>Fecha hasta (opcional)</label><input type="date" id="fecha_fin" name="fecha_fin"></div>
-                    <div><label>Tipo de Inmueble</label>
-                        <select id="tipo_inmueble" name="tipo_inmueble">
-                            <option value="">🌐 Todos</option>
-                            <option value="Casa">🏠 Casa</option>
-                            <option value="Apartamento">🏢 Apartamento</option>
-                            <option value="Local/Oficina">🏪 Local / Oficina</option>
-                            <option value="Terreno">🌳 Terreno / Finca</option>
-                            <option value="Galpón">🏭 Galpón / Bodega</option>
-                        </select>
+    <div class="container py-4">
+        <h2 class="text-center mb-4">🏢 INTEGRAL RQ - Análisis de WhatsApp</h2>
+        
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">📥 Archivo .txt de WhatsApp</label>
+                            <input type="file" class="form-control" name="file" accept=".txt" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">📅 Fecha desde</label>
+                            <input type="date" class="form-control" name="fecha_inicio">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">📅 Fecha hasta</label>
+                            <input type="date" class="form-control" name="fecha_fin">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">🏷️ Tipo de Inmueble</label>
+                            <select class="form-select" name="tipo_inmueble">
+                                <option value="">🌐 Todos</option>
+                                <option value="Casa">🏠 Casa</option>
+                                <option value="Apartamento">🏢 Apartamento</option>
+                                <option value="Local/Oficina">🏪 Local / Oficina</option>
+                                <option value="Terreno">🌳 Terreno / Finca</option>
+                                <option value="Galpón">🏭 Galpón / Bodega</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100 fw-bold">🚀 Procesar</button>
+                        </div>
                     </div>
-                    <div class="btn-group">
-                        <button type="submit" class="btn-primary" id="submitBtn">🚀 Procesar</button>
-                        <button type="button" class="btn-secondary" id="resetBtn">🔄 Nueva Búsqueda</button>
-                    </div>
-                </div>
-            </form>
-            <div id="error" class="error"></div>
-            <div id="loading" class="loading">⏳ Analizando conversación... Por favor espera.</div>
+                </form>
+            </div>
         </div>
 
-        <div id="results" class="hidden">
-            <div class="stats-grid">
-                <div class="stat-item"><div class="stat-value" id="totalReqs">0</div><div class="stat-label">Requerimientos</div></div>
-                <div class="stat-item"><div class="stat-value" id="topType">-</div><div class="stat-label">Más Solicitado</div></div>
-                <div class="stat-item"><div class="stat-value" id="topAgent">-</div><div class="stat-label">Agente Activo</div></div>
+        <div id="resultsSection" style="display: none;">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">📊 Estadísticas de Requerimientos</h5>
+                    <small class="text-muted">💡 Haz clic en un tipo de inmueble para filtrar la tabla inmediatamente</small>
+                </div>
+                <div class="card-body">
+                    <div id="statsContainer" class="d-flex flex-wrap gap-2"></div>
+                </div>
             </div>
-            <div class="card" style="margin-top: 24px;">
-                <h3 style="margin: 0 0 16px;">📋 Historial Detectado</h3>
-                <div class="table-container">
-                    <table id="reqTable">
-                        <thead><tr><th>Fecha</th><th>Tipo</th><th>Requerimiento</th><th>Contacto</th><th>Teléfono</th></tr></thead>
-                        <tbody id="reqTableBody"></tbody>
-                    </table>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">📋 Detalle de Requerimientos</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-secondary btn-sm" disabled title="Función temporalmente desactivada">📊 Descargar Excel</button>
+                        <button type="button" class="btn btn-secondary btn-sm" disabled title="Función temporalmente desactivada">📄 Descargar PDF</button>
+                        <span class="badge bg-warning text-dark">⚠️ Función Temporalmente desactivada</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="noResultsMsg" class="alert alert-warning" style="display: none;">
+                        🔍 No se encontraron requerimientos con los filtros seleccionados.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered align-middle" id="resultsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40px;"><input type="checkbox" id="selectAll"></th>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Requerimiento</th>
+                                    <th>Contacto</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        let allData = [];
+
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const form = e.target;
-            const submitBtn = document.getElementById('submitBtn');
-            const resetBtn = document.getElementById('resetBtn');
-            const loading = document.getElementById('loading');
-            const errorDiv = document.getElementById('error');
-            const resultsDiv = document.getElementById('results');
-            
-            errorDiv.style.display = 'none';
-            loading.style.display = 'block';
-            submitBtn.disabled = true;
-            resetBtn.disabled = true;
-            resultsDiv.classList.add('hidden');
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            document.getElementById('resultsSection').style.display = 'none';
 
-            const formData = new FormData(form);
-
+            const formData = new FormData(this);
             try {
-                const response = await fetch('/upload', { method: 'POST', body: formData, cache: 'no-store' });
+                const response = await fetch('/upload', { method: 'POST', body: formData });
                 const data = await response.json();
-
-                if (!response.ok) throw new Error(data.error || 'Error en el servidor');
-
-                document.getElementById('totalReqs').textContent = data.tabla.length;
-                const topType = Object.entries(data.estadisticas).sort((a,b) => b[1]-a[1])[0];
-                document.getElementById('topType').textContent = topType ? topType[0] : '-';
-                const topAgent = data.ranking[0];
-                document.getElementById('topAgent').textContent = topAgent ? topAgent.nombre : '-';
-
-                const tbody = document.getElementById('reqTableBody');
-                tbody.innerHTML = '';
                 
-                const mapaClases = {
-                    'Casa': 'badge-casa', 'Apartamento': 'badge-apartamento',
-                    'Local/Oficina': 'badge-local', 'Terreno': 'badge-terreno',
-                    'Galpón': 'badge-galpon', 'Otro': 'badge-otro'
-                };
-
-                data.tabla.forEach(r => {
-                    const tipo = r.tipo_inmueble || 'Otro';
-                    const clase = mapaClases[tipo] || 'badge-otro';
-                    tbody.innerHTML += `<tr>
-                        <td>${r.fecha}</td>
-                        <td><span class="badge ${clase}">${tipo}</span></td>
-                        <td>${r.requerimiento}</td>
-                        <td>${r.contacto}</td>
-                        <td>${r.telefono}</td>
-                    </tr>`;
-                });
-                resultsDiv.classList.remove('hidden');
-            } catch (err) {
-                errorDiv.textContent = `❌ ${err.message}`;
-                errorDiv.style.display = 'block';
+                if (response.ok) {
+                    allData = data.tabla || [];
+                    renderStats(data.estadisticas || {});
+                    renderTable(allData);
+                    document.getElementById('resultsSection').style.display = 'block';
+                } else {
+                    alert('Error: ' + (data.error || 'Error desconocido'));
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error al procesar el archivo.');
             } finally {
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
-                resetBtn.disabled = false;
+                document.getElementById('loadingOverlay').style.display = 'none';
             }
         });
 
-        document.getElementById('resetBtn').addEventListener('click', function() {
-            document.getElementById('uploadForm').reset();
-            document.getElementById('results').classList.add('hidden');
-            document.getElementById('error').style.display = 'none';
-            document.getElementById('reqTableBody').innerHTML = '';
-            document.getElementById('totalReqs').textContent = '0';
-            document.getElementById('topType').textContent = '-';
-            document.getElementById('topAgent').textContent = '-';
-            document.getElementById('file').focus();
+        function renderStats(estadisticas) {
+            const container = document.getElementById('statsContainer');
+            container.innerHTML = '';
+            const total = Object.values(estadisticas).reduce((a, b) => a + b, 0);
+            container.appendChild(createStatBtn('🌐 Todos', total, 'Todos', true));
+
+            const icons = { 'Casa': '🏠', 'Apartamento': '🏢', 'Local/Oficina': '🏪', 'Terreno': '🌳', 'Galpón': '🏭', 'Otro': '❓' };
+            for (const [tipo, cantidad] of Object.entries(estadisticas)) {
+                container.appendChild(createStatBtn(`${icons[tipo] || '📦'} ${tipo}`, cantidad, tipo, false));
+            }
+        }
+
+        function createStatBtn(label, count, tipo, isActive) {
+            const btn = document.createElement('button');
+            btn.className = `btn btn-outline-primary stat-btn ${isActive ? 'active' : ''}`;
+            btn.innerHTML = `<strong>${label}</strong> <span class="badge bg-secondary ms-1">${count}</span>`;
+            btn.onclick = () => filterTable(tipo, btn);
+            return btn;
+        }
+
+        function filterTable(tipo, clickedBtn) {
+            document.querySelectorAll('.stat-btn').forEach(btn => btn.classList.remove('active'));
+            clickedBtn.classList.add('active');
+            renderTable(tipo === 'Todos' ? allData : allData.filter(row => row.tipo_inmueble === tipo));
+        }
+
+        function getBadgeClass(tipo) {
+            const map = { 'Casa': 'bg-success', 'Apartamento': 'bg-primary', 'Local/Oficina': 'bg-warning text-dark', 'Terreno': 'bg-info text-dark', 'Galpón': 'bg-danger', 'Otro': 'bg-secondary' };
+            return map[tipo] || 'bg-secondary';
+        }
+
+        function toggleContactar(checkbox) {
+            const row = checkbox.closest('tr');
+            if (!row) return;
+            const badge = row.querySelector('.contactar-badge');
+            if (!badge) return;
+
+            if (checkbox.checked) {
+                badge.style.setProperty('display', 'inline-flex', 'important');
+            } else {
+                badge.style.setProperty('display', 'none', 'important');
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tableBody');
+            const noResultsMsg = document.getElementById('noResultsMsg');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                noResultsMsg.style.display = 'block';
+                return;
+            }
+            noResultsMsg.style.display = 'none';
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="checkbox" class="row-checkbox" onchange="toggleContactar(this)"></td>
+                    <td>${row.fecha}</td>
+                    <td><span class="badge ${getBadgeClass(row.tipo_inmueble)}">${row.tipo_inmueble}</span></td>
+                    <td>${row.requerimiento}</td>
+                    <td>${row.contacto}</td>
+                    <td>
+                        <span class="badge bg-success contactar-badge d-inline-flex align-items-center gap-1" style="display: none !important; cursor: pointer;" onclick="alert('📞 Iniciando proceso de contacto con: ${row.contacto}')">
+                            <i class="bi bi-telephone-fill"></i> Contactar
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('selectAll').addEventListener('change', function() {
+            document.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.checked = this.checked;
+                toggleContactar(cb);
+            });
         });
     </script>
 </body>
