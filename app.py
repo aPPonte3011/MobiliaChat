@@ -1,18 +1,22 @@
-from flask import Flask, render_template, request, jsonify
+import os
 import re
-from collections import Counter
-import webbrowser
-from threading import Timer
+import traceback
 from datetime import datetime
+from collections import Counter
+from flask import Flask, render_template, request, jsonify, session, send_file
+from flask_cors import CORS
 
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "mobilia-prod-key-2024")
+CORS(app)
 
 def parsear_fecha(fecha_str):
     fecha_str = fecha_str.replace('-', '/').replace('.', '/')
     for fmt in ['%d/%m/%Y', '%d/%m/%y', '%Y/%m/%d', '%d/%m']:
         try:
             dt = datetime.strptime(fecha_str.strip(), fmt)
-            if dt.year < 100: dt = dt.replace(year=dt.year + 2000)
+            if dt.year < 100:
+                dt = dt.replace(year=dt.year + 2000)
             return dt
         except ValueError:
             continue
@@ -25,7 +29,6 @@ def procesar_chat(texto_chat, fecha_inicio=None, fecha_fin=None, tipo_inmueble=N
     inmuebles_conteo = []
     agentes_lista = []
     vistos = set()
-
     patron_mensaje = re.compile(r"^\[?(\d{1,4}[/\-\.]\d{1,2}[/\-\.]\d{2,4}),?\s\d{1,2}:\d{2}(?::\d{2})?\]?\s(?:-\s)?([^:]+):\s(.*)$")
 
     for linea in lineas:
@@ -33,48 +36,46 @@ def procesar_chat(texto_chat, fecha_inicio=None, fecha_fin=None, tipo_inmueble=N
         if match:
             fecha_str, contacto, mensaje = match.groups()
             fecha_obj = parsear_fecha(fecha_str)
-
-            # 🗓️ Filtro por fecha
-            if fecha_inicio and fecha_obj and fecha_obj < fecha_inicio: continue
-            if fecha_fin and fecha_obj and fecha_obj > fecha_fin: continue
+            
+            if fecha_inicio and fecha_obj and fecha_obj < fecha_inicio:
+                continue
+            if fecha_fin and fecha_obj and fecha_obj > fecha_fin:
+                continue
 
             if re.search(patron_palabras, mensaje, re.IGNORECASE):
                 hash_mensaje = mensaje.strip().lower()
                 if hash_mensaje not in vistos:
                     vistos.add(hash_mensaje)
-
-                    # 🏠 Clasificación
                     msg_lower = mensaje.lower()
                     tipo_detectado = "Otro"
-                    if any(p in msg_lower for p in ["casa", "quinta", "chalet", "duplex"]): tipo_detectado = "Casa"
-                    elif any(p in msg_lower for p in ["apartamento", "apto", "depto", "ph", "flat"]): tipo_detectado = "Apartamento"
-                    elif any(p in msg_lower for p in ["local", "oficina", "consultorio", "comercial"]): tipo_detectado = "Local/Oficina"
-                    elif any(p in msg_lower for p in ["terreno", "finca", "lote", "parcela"]): tipo_detectado = "Terreno"
-                    elif any(p in msg_lower for p in ["galpon", "galpón", "bodega", "almacén"]): tipo_detectado = "Galpón"
+                    
+                    if any(p in msg_lower for p in ["casa", "quinta", "chalet", "duplex"]):
+                        tipo_detectado = "Casa"
+                    elif any(p in msg_lower for p in ["apartamento", "apto", "depto", "ph", "flat"]):
+                        tipo_detectado = "Apartamento"
+                    elif any(p in msg_lower for p in ["local", "oficina", "consultorio", "comercial"]):
+                        tipo_detectado = "Local/Oficina"
+                    elif any(p in msg_lower for p in ["terreno", "finca", "lote", "parcela"]):
+                        tipo_detectado = "Terreno"
+                    elif any(p in msg_lower for p in ["galpon", "galpón", "bodega", "almacén"]):
+                        tipo_detectado = "Galpón"
 
-                    # 🏷️ Filtro por tipo
-                    if tipo_inmueble and tipo_detectado != tipo_inmueble: continue
-
-                    telefono_match = re.search(r"(\+?\d{2,4}[\s-]?\d{3,4}[\s-]?\d{4,7})", mensaje)
-                    telefono = telefono_match.group(1) if telefono_match else "No especificado"
+                    if tipo_inmueble and tipo_detectado != tipo_inmueble:
+                        continue
 
                     requerimientos_lista.append({
                         "fecha": fecha_str,
                         "requerimiento": mensaje,
                         "contacto": contacto,
-                        "telefono": telefono,
                         "tipo_inmueble": tipo_detectado
                     })
                     inmuebles_conteo.append(tipo_detectado)
                     agentes_lista.append(contacto)
 
-    conteo_propiedades = dict(Counter(inmuebles_conteo))
-    ranking_agentes = [{"nombre": k, "mensajes": v} for k, v in Counter(agentes_lista).most_common(5)]
-
     return {
         "tabla": requerimientos_lista,
-        "estadisticas": conteo_propiedades,
-        "ranking": ranking_agentes
+        "estadisticas": dict(Counter(inmuebles_conteo)),
+        "ranking": [{"nombre": k, "mensajes": v} for k, v in Counter(agentes_lista).most_common(5)]
     }
 
 @app.route('/')
@@ -83,30 +84,81 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    if 'file' not in request.files:
-        return jsonify({"error": "No se subió ningún archivo"}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "Archivo vacío"}), 400
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "Empty filename"}), 400
+        
+        texto_chat = file.read().decode('utf-8', errors='ignore')
+        f_inicio = request.form.get('fecha_inicio')
+        f_fin = request.form.get('fecha_fin')
+        tipo = request.form.get('tipo_inmueble') or None
 
-    texto_chat = file.read().decode('utf-8', errors='ignore')
+        dt_inicio = datetime.strptime(f_inicio, '%Y-%m-%d') if f_inicio else None
+        dt_fin = datetime.strptime(f_fin, '%Y-%m-%d').replace(hour=23, minute=59, second=59) if f_fin else None
 
-    fecha_inicio_str = request.form.get('fecha_inicio')
-    fecha_fin_str = request.form.get('fecha_fin')
-    tipo_inmueble = request.form.get('tipo_inmueble') or None
+        resultados = procesar_chat(texto_chat, dt_inicio, dt_fin, tipo)
+        session['tabla_datos'] = resultados.get('tabla', [])
 
-    f_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d') if fecha_inicio_str else None
-    f_fin = datetime.strptime(fecha_fin_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59) if fecha_fin_str else None
+        response = jsonify(resultados)
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        return response
+    except Exception as e:
+        print(f"❌ ERROR EN /upload: {traceback.format_exc()}")
+        return jsonify({"error": str(e)}), 500
 
-    resultados = procesar_chat(texto_chat, f_inicio, f_fin, tipo_inmueble)
+@app.route('/export/excel')
+def export_excel():
+    import pandas as pd
+    from io import BytesIO
+    data = session.get('tabla_datos', [])
+    if not data:
+        return jsonify({"error": "No data"}), 404
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Requerimientos')
+    output.seek(0)
+    return send_file(output, download_name='requerimientos.xlsx', as_attachment=True,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.route('/export/pdf')
+def export_pdf():
+    from weasyprint import HTML
+    from io import BytesIO
+    data = session.get('tabla_datos', [])
+    if not data:
+        return jsonify({"error": "No data"}), 404
     
-    response = jsonify(resultados)
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
-    return response
+    html = """
+    <h1 style="text-align: center;">Reporte Mobilia</h1>
+    <table style="width: 100%; border-collapse: collapse; font-family: Arial, sans-serif;">
+        <tr style="background-color: #f2f2f2;">
+            <th style="border: 1px solid #ddd; padding: 8px;">Fecha</th>
+            <th style="border: 1px solid #ddd; padding: 8px;">Tipo</th>
+            <th style="border: 1px solid #ddd; padding: 8px;">Requerimiento</th>
+            <th style="border: 1px solid #ddd; padding: 8px;">Contacto</th>
+        </tr>
+    """
+    for row in data:
+        html += f"""
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">{row['fecha']}</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">{row['tipo_inmueble']}</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">{row['requerimiento']}</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">{row['contacto']}</td>
+        </tr>
+        """
+    html += "</table>"
+    
+    pdf = BytesIO()
+    HTML(string=html).write_pdf(pdf)
+    pdf.seek(0)
+    return send_file(pdf, download_name='requerimientos.pdf', as_attachment=True, mimetype='application/pdf')
 
-def abrir_navegador():
-    webbrowser.open("http://127.0.0.1:5000")
-
+# ✅ IMPORTANTE PARA RENDER: Usa el puerto que Render asigna automáticamente
 if __name__ == '__main__':
-    Timer(1.5, abrir_navegador).start()
-    app.run(debug=False, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
