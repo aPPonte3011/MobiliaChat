@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: integral-rq-inmobiliario
+    runtime: docker
+    plan: free
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PORT
+        value: 8000
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
